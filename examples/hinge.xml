@@ -1,0 +1,24 @@
+<mujoco model="mjhinge">
+  <option timestep="0.002"/>
+
+  <extension>
+    <plugin plugin="mjhinge.hinge_friction">
+      <instance name="hinge_friction">
+        <config key="joint" value="hinge"/>
+        <config key="radial_gain" value="0.00045"/>
+        <config key="axial_gain" value="0.00060"/>
+      </instance>
+    </plugin>
+  </extension>
+
+  <worldbody>
+    <light pos="0 -1 2"/>
+    <body name="link" pos="0 0 1">
+      <joint name="hinge" type="hinge" axis="0 1 0"
+             damping="0" frictionloss="0.0015"/>
+      <geom type="capsule" fromto="0 0 0 0.3 0 0" size="0.025"
+            mass="0.2" rgba="0.3 0.6 0.8 1"/>
+    </body>
+  </worldbody>
+</mujoco>
+

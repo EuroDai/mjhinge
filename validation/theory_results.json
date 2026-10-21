@@ -1,0 +1,304 @@
+{
+  "mujoco_version": "3.9.0",
+  "parameters": {
+    "mass_kg": 1.0,
+    "sphere_radius_m": 0.1,
+    "inertia_kg_m2": 0.004000000000000001,
+    "frictionloss_Nm": 0.002,
+    "radial_gain_m": 0.003,
+    "axial_gain_m": 0.004,
+    "radial_load_N": 3.0,
+    "axial_load_N": 4.0,
+    "theoretical_friction_Nm": 0.027000000000000003
+  },
+  "load_sweep": {
+    "cases": 16,
+    "max_torque_error_Nm": 1.734723475976807e-18,
+    "columns": [
+      "Fr_N",
+      "Fa_N",
+      "theory_Nm",
+      "from_acceleration_Nm"
+    ],
+    "values": [
+      [
+        0.0,
+        0.0,
+        0.002,
+        0.002
+      ],
+      [
+        0.0,
+        2.0,
+        0.01,
+        0.01
+      ],
+      [
+        0.0,
+        4.0,
+        0.018000000000000002,
+        0.018000000000000002
+      ],
+      [
+        0.0,
+        10.0,
+        0.042,
+        0.042
+      ],
+      [
+        1.0,
+        0.0,
+        0.005,
+        0.005
+      ],
+      [
+        1.0,
+        2.0,
+        0.013000000000000001,
+        0.013
+      ],
+      [
+        1.0,
+        4.0,
+        0.021,
+        0.021
+      ],
+      [
+        1.0,
+        10.0,
+        0.045,
+        0.045
+      ],
+      [
+        3.0,
+        0.0,
+        0.011000000000000001,
+        0.011000000000000001
+      ],
+      [
+        3.0,
+        2.0,
+        0.019000000000000003,
+        0.019000000000000003
+      ],
+      [
+        3.0,
+        4.0,
+        0.027000000000000003,
+        0.027000000000000003
+      ],
+      [
+        3.0,
+        10.0,
+        0.051000000000000004,
+        0.051000000000000004
+      ],
+      [
+        10.0,
+        0.0,
+        0.032,
+        0.032
+      ],
+      [
+        10.0,
+        2.0,
+        0.04,
+        0.04
+      ],
+      [
+        10.0,
+        4.0,
+        0.048,
+        0.048
+      ],
+      [
+        10.0,
+        10.0,
+        0.07200000000000001,
+        0.07200000000000001
+      ]
+    ]
+  },
+  "free_deceleration": {
+    "theory_alpha_rad_s2": -6.749999999999999,
+    "measured_alpha_rad_s2": -6.749999999999999,
+    "theory_omega_at_0_4s": 2.3000000000000003,
+    "measured_omega_at_0_4s": 2.3000000000000096,
+    "theory_angle_at_0_4s": 1.46,
+    "measured_angle_at_0_4s": 1.458649999999989,
+    "theory_stop_time_s": 0.7407407407407408,
+    "measured_time_below_1e_6_rad_s": 0.741,
+    "theory_stop_angle_rad": 1.851851851851852,
+    "measured_final_angle_rad": 1.8493524999999924
+  },
+  "energy": {
+    "initial_J": 0.05000000000000001,
+    "final_J": 1.5046327690525284e-39,
+    "friction_work_J": -0.049999999999999954,
+    "balance_error_J": 5.551115123125783e-17,
+    "positive_negative_motion_symmetric": true
+  },
+  "step_size_convergence": [
+    {
+      "dt_s": 0.002,
+      "angle_error_at_0_4s_rad": -0.002699999999985936,
+      "theory_euler_error_rad": -0.0026999999999999997,
+      "final_angle_error_rad": -0.004996851851837736
+    },
+    {
+      "dt_s": 0.001,
+      "angle_error_at_0_4s_rad": -0.0013500000000110646,
+      "theory_euler_error_rad": -0.0013499999999999999,
+      "final_angle_error_rad": -0.002499351851859677
+    },
+    {
+      "dt_s": 0.0005,
+      "angle_error_at_0_4s_rad": -0.0006750000000204093,
+      "theory_euler_error_rad": -0.0006749999999999999,
+      "final_angle_error_rad": -0.0012481018519061582
+    },
+    {
+      "dt_s": 0.00025,
+      "angle_error_at_0_4s_rad": -0.0003375000000205297,
+      "theory_euler_error_rad": -0.00033749999999999996,
+      "final_angle_error_rad": -0.000622461226917892
+    }
+  ],
+  "drive_threshold": [
+    {
+      "constraint": "default",
+      "drive_Nm": -0.05,
+      "ideal_alpha_rad_s2": -5.749999999999998,
+      "measured_alpha_rad_s2": -5.749999999999999,
+      "omega_at_1s_rad_s": -5.749999999999938
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": -0.026,
+      "ideal_alpha_rad_s2": -0.0,
+      "measured_alpha_rad_s2": 2.6541487272910297e-16,
+      "omega_at_1s_rad_s": -0.0068611111111111095
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": -0.02,
+      "ideal_alpha_rad_s2": -0.0,
+      "measured_alpha_rad_s2": 1.0004947064864681e-16,
+      "omega_at_1s_rad_s": -0.005277777777777776
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": 0.0,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": 0.0,
+      "omega_at_1s_rad_s": 0.0
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": 0.02,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": -1.0004947064864681e-16,
+      "omega_at_1s_rad_s": 0.005277777777777776
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": 0.026,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": -2.6541487272910297e-16,
+      "omega_at_1s_rad_s": 0.0068611111111111095
+    },
+    {
+      "constraint": "default",
+      "drive_Nm": 0.05,
+      "ideal_alpha_rad_s2": 5.749999999999998,
+      "measured_alpha_rad_s2": 5.749999999999999,
+      "omega_at_1s_rad_s": 5.749999999999938
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": -0.05,
+      "ideal_alpha_rad_s2": -5.749999999999998,
+      "measured_alpha_rad_s2": -5.749999999999998,
+      "omega_at_1s_rad_s": -5.749999999999938
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": -0.026,
+      "ideal_alpha_rad_s2": -0.0,
+      "measured_alpha_rad_s2": 3.2526065174565133e-19,
+      "omega_at_1s_rad_s": -6.499999999996109e-07
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": -0.02,
+      "ideal_alpha_rad_s2": -0.0,
+      "measured_alpha_rad_s2": 0.0,
+      "omega_at_1s_rad_s": -4.999999999999448e-07
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": 0.0,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": 0.0,
+      "omega_at_1s_rad_s": 0.0
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": 0.02,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": 0.0,
+      "omega_at_1s_rad_s": 4.999999999999448e-07
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": 0.026,
+      "ideal_alpha_rad_s2": 0.0,
+      "measured_alpha_rad_s2": -3.2526065174565133e-19,
+      "omega_at_1s_rad_s": 6.499999999996109e-07
+    },
+    {
+      "constraint": "stiff",
+      "drive_Nm": 0.05,
+      "ideal_alpha_rad_s2": 5.749999999999998,
+      "measured_alpha_rad_s2": 5.749999999999998,
+      "omega_at_1s_rad_s": 5.749999999999938
+    }
+  ],
+  "off_axis_dynamics": {
+    "offset_m": 0.3,
+    "inertia_kg_m2": 0.094,
+    "max_reaction_error_N": 6.661338147750939e-16,
+    "max_omega_error_rad_s": 0.0,
+    "final_omega_rad_s": 1.7639552407498573
+  },
+  "load_step_delay": {
+    "radial_load_N": [
+      0,
+      3,
+      3,
+      10,
+      10,
+      0,
+      0
+    ],
+    "theory_torque_Nm": [
+      0.002,
+      0.002,
+      0.011000000000000001,
+      0.011000000000000001,
+      0.032,
+      0.032,
+      0.002
+    ],
+    "measured_torque_Nm": [
+      0.002,
+      0.002,
+      0.011000000000000001,
+      0.011000000000000001,
+      0.03200000000000001,
+      0.032,
+      0.002
+    ]
+  },
+  "passed": true
+}
