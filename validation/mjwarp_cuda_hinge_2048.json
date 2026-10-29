@@ -1,0 +1,27 @@
+{
+  "device": "cuda:0",
+  "nworld": 2048,
+  "steps": 1000,
+  "hardware": "NVIDIA GeForce RTX 4090",
+  "versions": {
+    "mujoco": "3.16.0",
+    "mujoco-warp": "3.16.0",
+    "warp-lang": "1.18.0+cu12"
+  },
+  "graph": true,
+  "seconds": 0.19480589404702187,
+  "world_steps_per_second": 10513028.930765605,
+  "time": 1.99998140335083,
+  "qpos_world0": [
+    0.6681736707687378
+  ],
+  "loads_world0": [
+    [
+      2.7165865898132324,
+      0.0
+    ]
+  ],
+  "limits_world0": [
+    0.0027447384782135487
+  ]
+}

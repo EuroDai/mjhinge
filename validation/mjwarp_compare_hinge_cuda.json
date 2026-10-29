@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "device": "cuda:0",
+  "model": "examples/hinge.xml",
+  "steps": 1000,
+  "reference_mujoco": "3.9.0",
+  "warp_mujoco": "3.16.0",
+  "max_absolute_errors": {
+    "qpos": 2.921526669474872e-06,
+    "qvel": 1.4995287088481746e-05,
+    "qacc": 0.0008351948782134855,
+    "loads": 2.4642321894474684e-05
+  },
+  "tolerances": {
+    "qpos": 0.0002,
+    "qvel": 0.002,
+    "qacc": 0.2,
+    "loads": 0.002
+  }
+}

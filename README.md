@@ -120,6 +120,37 @@ python examples/run_hinge.py --plugin build-x64/Release/mjhinge.dll
 
 本工作区使用 Python wheel 附带的头文件和 DLL，并在忽略的构建目录中生成了本地导入库，产物位于 `build-x64/Release/mjhinge.dll`。从新检出目录构建时按上述 SDK 方式配置。
 
+## MJWarp / CUDA 后端
+
+新增独立 Python 包 `mjhinge_warp`，直接读取相同的插件 MJCF，转成无需 C++ 动态库的 MuJoCo Warp 模型。批量环境的径向/轴向载荷历史分别保存在 GPU 上，摩擦仍由原生约束求解器处理。支持原有增益、角度峰值、低速静摩擦增强、零 `frictionloss`、一步载荷延迟和局部环境重置；`forward()` 不推进历史。
+
+Warp 后端固定使用 **MuJoCo / mujoco-warp 3.16.0、Warp 1.18.0**，请与上面的 C++ / MuJoCo 3.9 环境分开安装。Linux：
+
+```bash
+python3 -m venv .venv-warp
+source .venv-warp/bin/activate
+python -m pip install -r requirements-warp.txt
+python -m pip install -e . --no-deps
+mjhinge-warp examples/hinge.xml --device cuda:0 --nworld 2048 --steps 1000 --graph
+```
+
+pc4 的 R550 驱动需要 CUDA 12 版 Warp，把上面的依赖文件换成 `requirements-warp-cu12.txt`。Windows 用 `.venv-warp\Scripts\Activate.ps1` 激活环境；CPU 验证指定 `--device cpu` 并省略 `--graph`。完整 API、运行边界、测试和跨后端对照命令见 [MJWarp 使用说明](docs/MJWARP_BACKEND.md)。
+
+```python
+from mjhinge_warp import HingeSimulation
+
+sim = HingeSimulation("examples/hinge.xml", nworld=256, device="cuda:0")
+sim.step(5)                 # 首次使用时预热内核
+sim.reset()
+sim.capture_step()          # 可选：捕获一个完整物理步及历史更新
+sim.step(1000)
+sim.reset([0, 7])           # 同时重置选中环境的物理状态和载荷历史
+sim.check()                # 显式同步，检查数值和容量溢出
+print(sim.loads.numpy())   # (nworld, nhinge, 2)，顺序为 [F_radial, F_axial]
+```
+
+`data.qpos/qvel/ctrl/xfrc_applied` 是设备数组；训练循环应原位写入。MuJoCo 3.16 的 RNE 已计入原生空间肌腱力，Warp 后端不重复执行 3.9 版补偿。外部 C++ cable 插件及 `body_force_sensors` 暂不支持，加载时会明确拒绝；可使用原生 tendon 或实际的 `xfrc_applied`。目前也不支持 sleeping body。必须通过 `sim.step()` 步进以推进历史，直接调用 `mjw.step()` 会跳过该步骤。
+
 ## 独立理论对照
 
 运行 `python tests/validate_theory.py --plugin build-x64/Release/mjhinge.dll`，可复现解析基准，并在 `validation/` 输出 JSON 数据与对照图。绘图另需 matplotlib。理论基准不读取插件内部摩擦上限来生成期望值，而是用几何尺寸、外载荷和刚体运动方程独立计算。

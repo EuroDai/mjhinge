@@ -1,0 +1,6 @@
+# Keep separate from the MuJoCo 3.9 C++ plugin environment.
+mujoco==3.16.0
+mujoco-warp==3.16.0
+warp-lang==1.18.0
+numpy>=1.26
+pytest>=8
