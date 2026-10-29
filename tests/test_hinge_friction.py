@@ -51,6 +51,34 @@ def limit(data, dof=0):
 
 
 class HingeFrictionTest(unittest.TestCase):
+    def test_angle_dependent_bearing_friction(self):
+        config = ('<config key="radial_peak_gain" value=".003"/>'
+                  '<config key="radial_peak_angle" value=".7"/>'
+                  '<config key="radial_peak_width" value=".2"/>')
+        for angle in [0., .7, 1.4]:
+            m,d=make(xml_model(base=0,radial=0,axial=0,extra_config=config))
+            d.qpos[0]=angle
+            d.plugin_state[:]=[2.,0.]
+            mujoco.mj_forward(m,d)
+            self.assertAlmostEqual(limit(d), .006*np.exp(-.5*((angle-.7)/.2)**2))
+
+    def test_stribeck_static_extra_and_sliding_dissipation(self):
+        config = '<config key="static_extra" value=".01"/><config key="stribeck_velocity" value=".02"/>'
+        for base in [0, .002]:
+            m, d = make(xml_model(base=base, radial=0, axial=0, extra_config=config))
+            d.qfrc_applied[0] = .005
+            mujoco.mj_step(m, d, 100)
+            self.assertLess(abs(d.qpos[0]), 1e-4)
+            self.assertAlmostEqual(limit(d), base+.01, places=6)
+            for speed in [-1., 1.]:
+                mujoco.mj_resetData(m, d)
+                d.qvel[0] = speed
+                mujoco.mj_step(m, d)
+                self.assertAlmostEqual(limit(d), base, places=10)
+                self.assertLessEqual(d.qfrc_constraint[0]*speed, 1e-12)
+        with self.assertRaises((ValueError, mujoco.FatalError)):
+            make(xml_model(extra_config='<config key="stribeck_velocity" value="0"/>'))
+
     def test_spatial_tendon_site_forces_and_pulley(self):
         for clamped in (False, True):
             root = ET.fromstring(xml_model(base=0))

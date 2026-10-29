@@ -2,7 +2,7 @@
 
 独立的 MuJoCo C++ 铰链摩擦插件。加载动态库并在 MJCF 中配置后，直接调用 `mj_step()` 即可运行，仿真循环不需要额外计算载荷或更新摩擦。
 
-插件名为 `mjhinge.hinge_friction`。每个实例关联一个已命名的 `hinge` 关节，新增 `radial_gain` 和 `axial_gain` 两个配置；关节原有的 `frictionloss` 和 `damping` 继续生效。
+插件名为 `mjhinge.hinge_friction`。每个实例关联一个已命名的 `hinge` 关节，支持载荷相关摩擦、可选的低速静摩擦增强和角度相关径向增益；关节原有的 `frictionloss` 和 `damping` 继续生效。新增项默认关闭，原有配置继续有效。
 
 ## MJCF 配置
 
@@ -34,6 +34,12 @@
 | `joint` | 关联的 hinge 关节名 | — | 必填 |
 | `radial_gain` | 径向载荷到摩擦力矩的等效系数 | N·m/N，即 m | 0 |
 | `axial_gain` | 轴向载荷到摩擦力矩的等效系数 | N·m/N，即 m | 0 |
+| `static_extra` | 低速附加摩擦上限 | N·m | 0 |
+| `stribeck_velocity` | 附加摩擦衰减的速度尺度，必须为正 | rad/s | 0.02 |
+| `radial_peak_gain` | 高斯形径向增益幅值 | m | 0 |
+| `radial_peak_angle` | 径向增益峰值所在角度 | rad | 0.7 |
+| `radial_peak_width` | 径向增益角度宽度，必须为正 | rad | 0.2 |
+| `body_force_sensors` | 可选的 plugin sensor 名列表，空格分隔；每个输出 `3*nbody` 个世界坐标系力分量 | N | 空 |
 | 关节 `frictionloss` | MuJoCo 原有的关节摩擦力矩上限 | N·m | MuJoCo 默认值 |
 
 两个 gain 必须为有限非负数，已经包含有效摩擦半径。多个关节分别配置多个实例；同一个关节只能配置一个实例。关联关节必须是所在刚体与父刚体之间唯一的关节，以便明确解释关节反力。
@@ -43,8 +49,10 @@
 每一步的摩擦力矩上限为：
 
 ```text
-T_limit[n] = frictionloss + radial_gain * F_radial[n-1]
-                         + axial_gain  * F_axial[n-1]
+gain(q) = radial_gain + radial_peak_gain * exp(-0.5*((q-radial_peak_angle)/radial_peak_width)^2)
+T_limit[n] = frictionloss + gain(q) * F_radial[n-1]
+                         + axial_gain * F_axial[n-1]
+                         + static_extra * exp(-(qvel/stribeck_velocity)^2)
 ```
 
 载荷来自 `mj_rnePostConstraint` 计算的关节传递力 `cfrc_int`，并补偿 MuJoCo 3.9 未计入的空间肌腱走线点作用力。在世界坐标系下，令关节轴单位向量为 `a`、关节传递力为 `F`：
@@ -53,6 +61,10 @@ T_limit[n] = frictionloss + radial_gain * F_radial[n-1]
 F_axial  = abs(dot(F, a))
 F_radial = norm(F - dot(F, a) * a)
 ```
+
+外部 cable 插件可以通过 `body_force_sensors` 报告施加到各刚体的物理力。传感器必须为 plugin sensor，维度为 `3*nbody`，按 body ID 顺序输出世界坐标系的 `[Fx,Fy,Fz]`；同一个传感器在多个关节实例中配置时只统计一次。传感器开启时，插件将这些力沿刚体子树汇总以补全轴承载荷；配置了此接口时不允许禁用传感器。mjhinge 不链接 cable 库，不配置该接口即可独立使用。
+
+有限半径圆弧绳路可使用 `gear="0"` 的几何 tendon，但其关联 actuator 必须有已配置的刚体力传感器报告实际载荷；非零 gear 的原生圆弧 tendon 载荷恢复仍不支持。只有 site/pulley 的原生走线继续按原来的 actuator 力恢复，避免重复统计纯几何传动。
 
 插件通过 `advance` 回调保存最近一次已求解的载荷，在下一步使用。初始状态和重置后的首步只使用原有关节 `frictionloss`；单独调用 `mj_forward()` 不推进载荷历史。RK4 使用上一步最后一个动力学阶段的反力。
 

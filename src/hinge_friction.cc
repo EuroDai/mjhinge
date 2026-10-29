@@ -8,13 +8,18 @@
 #include <cstdlib>
 #include <memory>
 #include <new>
+#include <sstream>
+#include <string>
 #include <vector>
 
 namespace mjhinge {
 namespace {
 
 constexpr char kPluginName[] = "mjhinge.hinge_friction";
-constexpr const char* kAttributes[] = {"joint", "radial_gain", "axial_gain"};
+constexpr const char* kAttributes[] = {
+    "joint", "radial_gain", "axial_gain", "body_force_sensors",
+    "static_extra", "stribeck_velocity", "radial_peak_gain",
+    "radial_peak_angle", "radial_peak_width"};
 constexpr int kStateSize = 2;  // radial and axial load from the last solved step
 
 struct Instance {
@@ -24,6 +29,11 @@ struct Instance {
   int coordinator;
   mjtNum radial_gain;
   mjtNum axial_gain;
+  mjtNum static_extra = 0;
+  mjtNum stribeck_velocity = 0.02;
+  mjtNum radial_peak_gain = 0;
+  mjtNum radial_peak_angle = 0.7;
+  mjtNum radial_peak_width = 0.2;
   mjtNum axis[3] = {};
   bool have_snapshot = false;
   // Only the first instance needs work buffers; all buffers belong to mjData.
@@ -31,6 +41,7 @@ struct Instance {
   std::vector<mjtNum> frictionloss;
   std::vector<mjtNum> tendon_force;
   std::vector<mjtNum> subtree_force;
+  std::vector<int> body_force_sensor_addresses;
 };
 
 Instance* GetInstance(const mjData* data, int instance) {
@@ -117,7 +128,46 @@ int Init(const mjModel* model, mjData* data, int instance) {
     info->coordinator = coordinator;
     info->radial_gain = radial_gain;
     info->axial_gain = axial_gain;
+    if (!ReadGain(model, instance, "static_extra", &info->static_extra)) return -1;
+    if (!ReadGain(model, instance, "radial_peak_gain", &info->radial_peak_gain)) return -1;
+    for (const auto& item : {std::make_pair("radial_peak_angle", &info->radial_peak_angle),
+                             std::make_pair("radial_peak_width", &info->radial_peak_width)}) {
+      const char* value = mj_getPluginConfig(model, instance, item.first);
+      if (value && value[0] && !ReadGain(model, instance, item.first, item.second)) return -1;
+    }
+    if (info->radial_peak_width <= 0) {
+      mju_warning("mjhinge: radial_peak_width must be positive");
+      return -1;
+    }
+    const char* stribeck = mj_getPluginConfig(model, instance, "stribeck_velocity");
+    if (stribeck && stribeck[0] &&
+        (!ReadGain(model, instance, "stribeck_velocity", &info->stribeck_velocity) ||
+         info->stribeck_velocity <= 0)) {
+      mju_warning("mjhinge: stribeck_velocity must be positive");
+      return -1;
+    }
     if (instance == coordinator) {
+      // Optional surface-cable force reports: world-frame force on each body,
+      // in body-id order. Count a shared sensor only once across the hinges.
+      for (int i = 0; i < model->nplugin; ++i) {
+        if (model->plugin[i] != model->plugin[instance]) continue;
+        const char* config = mj_getPluginConfig(model, i, "body_force_sensors");
+        std::istringstream names(config ? config : "");
+        for (std::string name; names >> name;) {
+          const int sensor = mj_name2id(model, mjOBJ_SENSOR, name.c_str());
+          if (sensor < 0 || model->sensor_dim[sensor] != 3 * model->nbody ||
+              model->sensor_type[sensor] != mjSENS_PLUGIN) {
+            mju_warning("mjhinge: body force sensor '%s' must contain 3*nbody values",
+                        name.c_str());
+            return -1;
+          }
+          int address = model->sensor_adr[sensor];
+          auto& addresses = info->body_force_sensor_addresses;
+          if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+            addresses.push_back(address);
+          }
+        }
+      }
       // MuJoCo 3.9 RNE omits spatial tendon forces. Support explicit site
       // routing (including pulley branches); reject unimplemented load sources.
       for (int t = 0; t < model->ntendon; ++t) {
@@ -130,9 +180,25 @@ int Init(const mjModel* model, mjData* data, int instance) {
           unsupported |= model->tendon_stiffnesspoly[t*mjNPOLY+k] != 0 ||
                          model->tendon_dampingpoly[t*mjNPOLY+k] != 0;
         }
+        bool native_load = false, reported_plugin_load = false;
+        for (int a = 0; a < model->nu; ++a) {
+          if (model->actuator_trntype[a] != mjTRN_TENDON || model->actuator_trnid[2*a] != t) continue;
+          native_load |= model->actuator_gear[6*a] != 0;
+          const int plugin = model->actuator_plugin[a];
+          if (plugin >= 0) {
+            for (int sensor = 0; sensor < model->nsensor; ++sensor) {
+              reported_plugin_load |= model->sensor_plugin[sensor] == plugin &&
+                  std::find(info->body_force_sensor_addresses.begin(),
+                            info->body_force_sensor_addresses.end(), model->sensor_adr[sensor])
+                      != info->body_force_sensor_addresses.end();
+            }
+          }
+        }
         for (int k = adr; k < adr + model->tendon_num[t]; ++k) {
-          unsupported |= model->wrap_type[k] != mjWRAP_SITE &&
-                         model->wrap_type[k] != mjWRAP_PULLEY;
+          const bool wrapped = model->wrap_type[k] != mjWRAP_SITE && model->wrap_type[k] != mjWRAP_PULLEY;
+          // Geometry-only transmission with gear=0: the cable plugin reports
+          // physical forces per body through the already registered sensor.
+          unsupported |= wrapped && (native_load || !reported_plugin_load);
         }
         for (int e = 0; e < model->neq; ++e) {
           unsupported |= model->eq_type[e] == mjEQ_TENDON &&
@@ -187,8 +253,14 @@ void Reset(const mjModel*, mjtNum* state, void* plugin_data, int) {
 mjtNum Limit(const mjModel* model, const mjData* data, int instance,
              const Instance& info) {
   const mjtNum* load = data->plugin_state + model->plugin_stateadr[instance];
+  const mjtNum speed = data->qvel[info.dof] / info.stribeck_velocity;
+  const mjtNum coordinate = (data->qpos[model->jnt_qposadr[info.joint]] -
+                            info.radial_peak_angle) / info.radial_peak_width;
+  const mjtNum radial_gain = info.radial_gain + info.radial_peak_gain *
+                            std::exp(-0.5 * coordinate * coordinate);
   const mjtNum limit = model->dof_frictionloss[info.dof] +
-                      info.radial_gain * load[0] + info.axial_gain * load[1];
+                      radial_gain * load[0] + info.axial_gain * load[1] +
+                      info.static_extra * std::exp(-speed * speed);
   if (!std::isfinite(limit) || limit < 0) {
     mju_error("mjhinge.hinge_friction: invalid friction limit");
   }
@@ -216,6 +288,10 @@ void Compute(const mjModel* model, mjData* data, int instance, int capability) {
       !Enabled(model)) {
     return;
   }
+  if (!workspace->body_force_sensor_addresses.empty() &&
+      (model->opt.disableflags & mjDSBL_SENSOR)) {
+    mju_error("mjhinge: surface-cable load accounting requires sensors enabled");
+  }
 
   bool rebuild = false;
   bool active = false;
@@ -224,7 +300,7 @@ void Compute(const mjModel* model, mjData* data, int instance, int capability) {
       continue;
     }
     Instance* info = GetInstance(data, i);
-    if (info->radial_gain == 0 && info->axial_gain == 0) {
+    if (info->radial_gain == 0 && info->axial_gain == 0 && info->static_extra == 0 && info->radial_peak_gain == 0) {
       continue;
     }
     active = true;
@@ -273,7 +349,7 @@ void Compute(const mjModel* model, mjData* data, int instance, int capability) {
       continue;
     }
     const Instance& info = *GetInstance(data, i);
-    if (info.radial_gain == 0 && info.axial_gain == 0) {
+    if (info.radial_gain == 0 && info.axial_gain == 0 && info.static_extra == 0 && info.radial_peak_gain == 0) {
       continue;
     }
     const int row = FrictionRow(data, info.dof);
@@ -307,6 +383,7 @@ void TendonLoads(const mjModel* model, const mjData* data, Instance* workspace) 
     int adr = model->tendon_adr[t];
     if (model->wrap_type[adr] == mjWRAP_JOINT) continue;
     mjtNum scalar = tension[t];
+    if (scalar == 0) continue;  // Plugin forces are included via its body sensor.
     // actuator_force already includes native actuator/tendon force clamping.
     mjtNum divisor = 1;
     int previous = -1;
@@ -333,6 +410,13 @@ void TendonLoads(const mjModel* model, const mjData* data, Instance* workspace) 
         }
       }
       previous = site;
+    }
+  }
+  // Surface plugins apply Cartesian forces through qfrc_passive, so MuJoCo's
+  // RNE also omits these physical body forces. Only correct the measured load.
+  for (int address : workspace->body_force_sensor_addresses) {
+    for (mjtSize k = 0; k < 3 * model->nbody; ++k) {
+      force[k] += data->sensordata[address + k];
     }
   }
   for (mjtSize b = model->nbody-1; b > 0; --b) {
@@ -364,7 +448,7 @@ void Advance(const mjModel* model, mjData* data, int instance) {
       continue;
     }
     const Instance& info = *GetInstance(data, i);
-    if (info.radial_gain == 0 && info.axial_gain == 0) {
+    if (info.radial_gain == 0 && info.axial_gain == 0 && info.static_extra == 0 && info.radial_peak_gain == 0) {
       continue;
     }
     mjtNum force[3];
